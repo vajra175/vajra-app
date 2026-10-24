@@ -2088,3 +2088,630 @@ def build_ananta216_excel_dossier(
             ws1.write(idx, 1, v, f)
 
         # SHEET 2: ACTIVE PROFILE VAULT & ACAR SPLIT AUDIT
+# SHEET 2: ACTIVE PROFILE VAULT & ACAR SPLIT AUDIT
+        s2_name = sanitize_sheet_name(f"02_Vault_{active_profile}")
+        ws2 = wb.add_worksheet(s2_name)
+        ws2.hide_gridlines(2)
+        cols_s2 = [
+            "Symbol", "Sector", "Shares", "Reconciled Buy Price", "Live CMP", "1D Change %",
+            "Cost Basis", "Market Value", "P&L (₹)", "P&L %", "Weight %", "Risk & ACAR Audit Note"
+        ]
+        for c_idx, h_text in enumerate(cols_s2):
+            ws2.write(0, c_idx, h_text, fmt_hdr)
+
+        if not df_vault_disp.empty:
+            for r_idx, row in df_vault_disp.reset_index(drop=True).iterrows():
+                excel_r = r_idx + 1
+                pnl_v = float(row["P&L (₹)"])
+                wt_v = float(row["Weight %"])
+                risk_tag = (
+                    "FORENSIC VETO" if row["Symbol"] in FORENSIC_VETO_REGISTRY
+                    else ("OVERWEIGHT (>8%)" if wt_v > 8.0 else "OPTIMAL (<8%)")
+                )
+                acar_tag = row.get("ACAR Note", "Split-Adjusted Verified")
+                audit_note = f"{risk_tag} | {acar_tag}"
+
+                ws2.write(excel_r, 0, row["Symbol"], fmt_ctr)
+                ws2.write(excel_r, 1, row["Sector"], fmt_txt)
+                ws2.write(excel_r, 2, float(row["Shares"]), fmt_num)
+                ws2.write(excel_r, 3, float(row["Buy Price"]), fmt_inr)
+                ws2.write(excel_r, 4, float(row["Live CMP"]), fmt_inr)
+                ws2.write(excel_r, 5, float(row.get("1D Change %", 0.0)) / 100.0, fmt_pct)
+                ws2.write(excel_r, 6, float(row["Cost Basis"]), fmt_inr)
+                ws2.write(excel_r, 7, float(row["Market Value"]), fmt_inr)
+                ws2.write(excel_r, 8, pnl_v, fmt_pos if pnl_v >= 0 else fmt_neg)
+                ws2.write(excel_r, 9, float(row["P&L %"]) / 100.0, fmt_pct)
+                ws2.write(excel_r, 10, wt_v / 100.0, fmt_pct)
+                ws2.write(excel_r, 11, audit_note, fmt_txt)
+
+        ws2.set_column("A:A", 14)
+        ws2.set_column("B:B", 24)
+        ws2.set_column("C:K", 16)
+        ws2.set_column("L:L", 42)
+
+        # SHEET 3: SECTOR ALLOCATION & 20% CONCENTRATION CAP AUDIT
+        s3_name = sanitize_sheet_name("03_Sector_Risk_Audit")
+        ws3 = wb.add_worksheet(s3_name)
+        ws3.hide_gridlines(2)
+        cols_s3 = ["Sector Classification", "Cost Basis (₹)", "Market Value (₹)", "Sector Net P&L (₹)", "Portfolio Weight %", "20% Institutional Cap Status"]
+        for c_idx, h_text in enumerate(cols_s3):
+            ws3.write(0, c_idx, h_text, fmt_hdr)
+
+        if not df_vault_disp.empty and tot_mkt > 0:
+            sec_df = (
+                df_vault_disp.groupby("Sector", as_index=False)
+                .agg({"Cost Basis": "sum", "Market Value": "sum", "P&L (₹)": "sum"})
+                .sort_values(by="Market Value", ascending=False)
+            )
+            for r_idx, s_row in sec_df.reset_index(drop=True).iterrows():
+                excel_r = r_idx + 1
+                s_val = float(s_row["Market Value"])
+                s_wt = (s_val / tot_mkt) * 100.0
+                s_pnl = float(s_row["P&L (₹)"])
+                cap_stat = "BREACH (>20.0% CEILING)" if s_wt > 20.0 else "COMPLIANT (<20.0%)"
+
+                ws3.write(excel_r, 0, s_row["Sector"], fmt_txt)
+                ws3.write(excel_r, 1, float(s_row["Cost Basis"]), fmt_inr)
+                ws3.write(excel_r, 2, s_val, fmt_inr)
+                ws3.write(excel_r, 3, s_pnl, fmt_pos if s_pnl >= 0 else fmt_neg)
+                ws3.write(excel_r, 4, s_wt / 100.0, fmt_pct)
+                ws3.write(excel_r, 5, cap_stat, fmt_ctr)
+
+        ws3.set_column("A:A", 28)
+        ws3.set_column("B:E", 18)
+        ws3.set_column("F:F", 26)
+
+        # SHEET 4: LIVE QUANTITATIVE MARKET RADAR (39 LIQUID NSE STOCKS)
+        s4_name = sanitize_sheet_name("04_Live_Market_Radar")
+        ws4 = wb.add_worksheet(s4_name)
+        ws4.hide_gridlines(2)
+        cols_s4 = [
+            "Symbol", "Sector", "CMP (₹)", "1D Change %", "ANANTA-216 Score", "Wilder's RSI",
+            "ATR (14)", "Vol Surge", "Accumulation Zone", "2.2x ATR Stop", "Target (₹)", "R:R Ratio", "Master Verdict", "Forensic Gating Summary"
+        ]
+        for c_idx, h_text in enumerate(cols_s4):
+            ws4.write(0, c_idx, h_text, fmt_hdr)
+
+        if not df_radar.empty:
+            for r_idx, r_row in df_radar.reset_index(drop=True).iterrows():
+                excel_r = r_idx + 1
+                ws4.write(excel_r, 0, r_row["Symbol"], fmt_ctr)
+                ws4.write(excel_r, 1, r_row["Sector"], fmt_txt)
+                ws4.write(excel_r, 2, float(r_row["CMP (₹)"]), fmt_inr)
+                ws4.write(excel_r, 3, float(r_row["Change %"]) / 100.0, fmt_pct)
+                ws4.write(excel_r, 4, float(r_row["ANANTA-216 Score"]), fmt_num)
+                ws4.write(excel_r, 5, float(r_row["RSI (14)"]), fmt_num)
+                ws4.write(excel_r, 6, float(r_row["ATR (14)"]), fmt_inr)
+                ws4.write(excel_r, 7, str(r_row["Vol Surge"]), fmt_ctr)
+                ws4.write(excel_r, 8, str(r_row["Buy Zone"]), fmt_ctr)
+                ws4.write(excel_r, 9, float(r_row["Stop-Loss (₹)"]), fmt_inr)
+                ws4.write(excel_r, 10, float(r_row["Target (₹)"]), fmt_inr)
+                ws4.write(excel_r, 11, str(r_row["R:R"]), fmt_ctr)
+                ws4.write(excel_r, 12, str(r_row["Verdict"]), fmt_ctr)
+                ws4.write(excel_r, 13, str(r_row["Forensic Note"]), fmt_txt)
+
+        ws4.set_column("A:A", 14)
+        ws4.set_column("B:B", 24)
+        ws4.set_column("C:L", 16)
+        ws4.set_column("M:M", 24)
+        ws4.set_column("N:N", 48)
+
+        # SHEET 5: MASTER 216-VARIABLE DETERMINISTIC CODEX LEDGER
+        s5_name = sanitize_sheet_name(f"05_Codex216_{featured_sym}")
+        ws5 = wb.add_worksheet(s5_name)
+        ws5.hide_gridlines(2)
+        ws5.set_column("A:A", 48)
+        ws5.set_column("B:B", 38)
+        ws5.write(0, 0, f"PARAMA-VAJRA 216-Variable Metric ({featured_sym})", fmt_hdr)
+        ws5.write(0, 1, "Deterministic Value / Computed Status", fmt_hdr)
+
+        for i_idx, (m_key, m_val) in enumerate(featured_codex.items(), start=1):
+            ws5.write(i_idx, 0, m_key, fmt_txt)
+            if isinstance(m_val, (int, float)):
+                ws5.write(i_idx, 1, float(m_val), fmt_num)
+            elif isinstance(m_val, bool):
+                ws5.write(i_idx, 1, "TRUE" if m_val else "FALSE", fmt_ctr)
+            else:
+                ws5.write(i_idx, 1, str(m_val), fmt_txt)
+
+    return output.getvalue()
+
+
+# ------------------------------------------------------------------------------
+# 11. STREAMLIT APP NAVIGATION & DUAL-CORE INTERFACE
+# ------------------------------------------------------------------------------
+vedic = get_live_vedic_chronometer()
+
+col_h1, col_h2 = st.columns([2.2, 1.2])
+with col_h1:
+    st.title("⚡ PARAMA-VAJRA (ANANTA-216)")
+    st.caption("Supreme Sovereign Alpha Engine • ACAR Split Reconciler • Saptarshi Vedic Chronometer")
+with col_h2:
+    st.markdown(
+        f"""
+        <div style="text-align:right; padding-top:10px;">
+            <span class="status-pulse"></span><b>{vedic['mkt_session']}</b><br>
+            <span style="font-size:12px; color:#94A3B8;">{vedic['date']} | {vedic['day']} | {vedic['time_ist']}</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+# Real-Time Muhurta Banner
+st.markdown(
+    f"""
+    <div class="{vedic['banner_class']}">
+        <b>🕉️ Saptarshi Abhijit Muhurta:</b> {vedic['abhijit']} &nbsp;|&nbsp;
+        <b>⚠️ Rahu Kaalam:</b> {vedic['rahu']} &nbsp;|&nbsp;
+        <b>Yamaganda:</b> {vedic['yamaganda']}<br>
+        <b>Choghadiya:</b> {vedic['choghadiya']} &nbsp;|&nbsp;
+        <b>Execution Gate:</b> {vedic['rahu_status']}
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+# Active Portfolio Profile Switcher & Global Risk Bar
+ctrl_c1, ctrl_c2, ctrl_c3 = st.columns([1.6, 1.2, 1.2])
+profile_list = ["Self - Primary", "Family Member 1", "Family Member 2", "Family Trust"]
+with ctrl_c1:
+    active_profile = st.selectbox("Active Family Vault Profile:", profile_list, index=0)
+with ctrl_c2:
+    acct_equity_base = st.number_input(
+        "Risk Sizing Reference Capital (₹):",
+        min_value=100000.0,
+        value=2500000.0,
+        step=100000.0,
+        help="Used to compute fractional Kelly position sizes and 1% risk-per-trade limits.",
+    )
+with ctrl_c3:
+    risk_per_trade_pct = st.slider(
+        "Max Risk Per Trade (% of Equity):",
+        min_value=0.25,
+        max_value=2.50,
+        value=1.00,
+        step=0.25,
+    )
+
+# Pre-fetch Radar Scan across 39 NSE Bellwethers
+with st.spinner("Sweeping Liquid NSE Universe across all 216 Variables..."):
+    df_rad, macro_telemetry = scan_radar_universe_216(vedic)
+
+live_mmi = macro_telemetry.get("mmi", 51.2)
+
+# Main Navigation Tabs
+tab_radar, tab_scanner, tab_vault, tab_trade, tab_copilot, tab_export = st.tabs([
+    "🌐 Market Radar",
+    "🔍 Visual Stock Terminal",
+    f"💼 {active_profile} Vault",
+    "⚙️ Trade Desk (Buy/Sell)",
+    "💬 AI Quant Copilot",
+    "📥 Institutional Dossier"
+])
+
+# ==============================================================================
+# TAB 1: REAL-TIME BROADER MARKET RADAR (OUTSIDE PORTFOLIO)
+# ==============================================================================
+with tab_radar:
+    st.subheader("📡 Broader Market Intelligence & 216-Variable Universe Breadth")
+    col_g1, col_g2 = st.columns([1, 1.55])
+    with col_g1:
+        st.plotly_chart(GrandVisualEngine.create_market_mood_gauge(live_mmi), use_container_width=True)
+    with col_g2:
+        mmi_zone = (
+            "Extreme Fear (Contrarian Opportunity)" if live_mmi < 30
+            else ("Cautious Fear" if live_mmi < 46
+            else ("Neutral Equilibrium" if live_mmi < 58
+            else ("Greed / Bullish Expansion" if live_mmi < 76
+            else "Extreme Euphoria (Overbought)")))
+        )
+        pct_above_50 = round((df_rad["CMP (₹)"] > df_rad["EMA 50"]).mean() * 100.0, 1) if not df_rad.empty else 50.0
+        mean_rsi = round(df_rad["RSI (14)"].mean(), 1) if not df_rad.empty else 50.0
+        active_buys = int((df_rad["Verdict"] == "🟢 STRONG BUY").sum()) if not df_rad.empty else 0
+
+        st.markdown(
+            f"""
+            <div class="glass-card" style="margin-top:8px;">
+                <b>Market Mood:</b> <b>{live_mmi:.1f} ({mmi_zone})</b>.<br>
+                • <b>Universe Breadth:</b> <b>{pct_above_50}%</b> of liquid NSE leaders trade above 50-day EMA.<br>
+                • <b>Cross-Sectional Wilder's RSI:</b> <b>{mean_rsi}</b> | <b>Active Breakouts:</b> <b>{active_buys}</b>.<br>
+                • <b>Principle-1 Shield:</b> Forensic Gatekeeper automatically overrides high momentum if fundamentals fail.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    if not df_rad.empty:
+        buys = df_rad[~df_rad["Hard Veto"] & df_rad["Verdict"].str.contains("BUY")].sort_values(by="ANANTA-216 Score", ascending=False).head(5)
+        sells = df_rad[df_rad["Hard Veto"] | df_rad["Verdict"].str.contains("REDUCE|EXIT")].sort_values(by="ANANTA-216 Score", ascending=True).head(5)
+
+        st.markdown("#### 🟢 TOP 5 INSTITUTIONAL BUYS IN THE MARKET (RIGHT NOW)")
+        st.dataframe(
+            buys[["Symbol", "Sector", "CMP (₹)", "Change %", "ANANTA-216 Score", "RSI (14)", "Vol Surge", "Buy Zone", "Stop-Loss (₹)", "Target (₹)", "R:R", "Verdict"]],
+            use_container_width=True,
+            hide_index=True,
+        )
+
+        st.markdown("#### 🔴 TOP 5 AVOID / EXIT SIGNALS IN THE MARKET (RIGHT NOW)")
+        st.dataframe(
+            sells[["Symbol", "Sector", "CMP (₹)", "Change %", "ANANTA-216 Score", "RSI (14)", "Verdict", "Forensic Note"]],
+            use_container_width=True,
+            hide_index=True,
+        )
+
+        with st.expander("📊 View Complete 39-Stock Quantitative Screening Universe"):
+            st.dataframe(df_rad.sort_values(by="ANANTA-216 Score", ascending=False), use_container_width=True, hide_index=True)
+
+# ==============================================================================
+# TAB 2: ANY-STOCK VISUAL TERMINAL & KELLY POSITION SIZING
+# ==============================================================================
+with tab_scanner:
+    st.subheader("🔍 Real-Time Visual Stock Terminal & 216-Variable Deep Inspector")
+    col_t1, col_t2, col_t3 = st.columns([2.2, 1.2, 1])
+    with col_t1:
+        target_t = st.text_input("Enter any NSE ticker (e.g. BEL, HAL, KOTAKBANK, YESBANK, TRENT):", "BEL").upper().replace(".NS", "").strip()
+    with col_t2:
+        chart_lookback = st.selectbox("Lookback Window:", ["3mo", "6mo", "1y", "2y"], index=1)
+    with col_t3:
+        chart_mode = st.radio("Chart Type:", ["Candlestick", "Line"], horizontal=True)
+
+    if target_t:
+        with st.spinner(f"Computing 216 Variables & Live Microstructure for {target_t}..."):
+            yf_ticker = f"{target_t.replace('DATA_PATTERNS', 'DATAPATTNS')}.NS"
+            try:
+                hist_df = yf.Ticker(yf_ticker).history(period=chart_lookback)
+            except Exception:
+                hist_df = pd.DataFrame()
+
+            codex_res = compute_216_variable_codex(target_t, hist_df, vedic, acct_equity_base)
+            cmp_now = codex_res["CMP (₹)"]
+
+            if not hist_df.empty and len(hist_df) >= 30:
+                fig_c = GrandVisualEngine.create_advanced_technical_chart(
+                    hist_df,
+                    target_t,
+                    codex_res["Buy Zone Low"],
+                    cmp_now,
+                    codex_res["Stop-Loss (₹)"],
+                    codex_res["Target (₹)"],
+                    codex_res["Codex_216"]["068. POC_Price"],
+                    use_candles=(chart_mode == "Candlestick"),
+                )
+                st.plotly_chart(fig_c, use_container_width=True)
+
+            # Executive KPI Cards
+            c1, c2, c3, c4, c5 = st.columns(5)
+            c1.metric("Live CMP", f"₹{cmp_now:,.2f}", f"{codex_res['Change %']:+.2f}%")
+            c2.metric("ANANTA-216 Score", f"{codex_res['ANANTA-216 Score']} / 100", codex_res["Verdict"])
+            c3.metric("Buy Range", codex_res["Buy Zone"], f"RSI: {codex_res['RSI (14)']}")
+            c4.metric("Target (1:2.5 R:R)", f"₹{codex_res['Target (₹)']:,.1f}", codex_res["R:R"])
+            c5.metric("2.2x ATR Stop", f"₹{codex_res['Stop-Loss (₹)']:,.1f}", "Dynamic Floor")
+
+            if codex_res["Hard Veto"]:
+                st.markdown(f'<div class="badge-veto">🚨 {codex_res["Forensic Note"]}</div>', unsafe_allow_html=True)
+                st.write("")
+
+            # Institutional Kelly Risk Sizing Block
+            risk_amt = acct_equity_base * (risk_per_trade_pct / 100.0)
+            rps = max(cmp_now - codex_res["Stop-Loss (₹)"], cmp_now * 0.01)
+            raw_shares = math.floor(risk_amt / rps)
+            cap_shares = math.floor((acct_equity_base * 0.08) / cmp_now)
+            final_shares = min(raw_shares, cap_shares) if not codex_res["Hard Veto"] else 0
+            final_cap = final_shares * cmp_now
+            final_wt = (final_cap / acct_equity_base) * 100.0
+
+            st.markdown(
+                f"""
+                <div class="glass-card">
+                    <b>📐 Institutional Position Sizing & Forensic Summary ({target_t})</b><br>
+                    • <b>Forensic Status:</b> {codex_res['Forensic Note']}<br>
+                    • <b>Recommended Sizing ({risk_per_trade_pct:.2f}% Risk Budget & ≤8% Cap):</b> <b>{final_shares:,} Shares</b> 
+                    (Capital: <b>₹{final_cap:,.0f}</b> | Portfolio Weight: <b>{final_wt:.2f}%</b> | Max Rupee Risk: <b>₹{final_shares * rps:,.0f}</b>)
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            # Deep 216-Variable Accordion
+            with st.expander(f"📑 Inspect All 216 Computed Variables for {target_t}", expanded=False):
+                df_c216 = pd.DataFrame(list(codex_res["Codex_216"].items()), columns=["Metric # & Identifier", "Computed Value"])
+                st.dataframe(df_c216, use_container_width=True, height=550)
+
+# ==============================================================================
+# TAB 3: MULTI-FAMILY VAULT & 1-CLICK NLP INGESTION ENGINE
+# ==============================================================================
+df_vault_disp = pd.DataFrame()
+with tab_vault:
+    st.subheader(f"💼 Sovereign Vault: {active_profile}")
+    df_held = get_holdings(active_profile)
+
+    # 1-Click NLP Ingestion Drawer
+    with st.expander("📥 1-Click AI Raw Text / Broker Holdings Ingestion (Zero Manual Typing)"):
+        st.caption("Paste raw text from Zerodha Console, Groww, Upstox, WhatsApp, or CSV. The NLP engine parses symbols, quantities, and prices automatically:")
+        raw_paste = st.text_area(
+            "Paste Messy Broker Text / Holdings Table Here:",
+            placeholder="KOTAKBANK 260 329.35\nPOLYCAB 25 3937.74\nBEL 100 shares @ 390.65\nYESBANK 1221 16.32",
+            height=120,
+        )
+        if st.button("⚡ Parse & Bulk-Load into Vault"):
+            parsed_items = parse_raw_broker_holdings_text(raw_paste)
+            if parsed_items:
+                for item in parsed_items:
+                    save_holding_direct(active_profile, item["Symbol"], item["Shares"], item["Avg_Cost"], item["Sector"])
+                st.success(f"Successfully parsed and loaded {len(parsed_items)} positions into {active_profile}!")
+                st.rerun()
+            else:
+                st.error("Could not parse valid ticker symbols, share counts, or prices from the pasted text. Check format.")
+
+    # Seeding Buttons
+    b_col1, b_col2 = st.columns(2)
+    with b_col1:
+        if st.button(f"📥 Seed Full 57-Stock Portfolio into {active_profile}"):
+            for s, q, c, sec in VERIFIED_57_SEED_HOLDINGS:
+                save_holding_direct(active_profile, s, q, c, sec)
+            st.success(f"Seeded all 57 positions into {active_profile}!")
+            st.rerun()
+    with b_col2:
+        if st.button(f"⚡ Seed Core 8 High-Conviction Starter Pack into {active_profile}"):
+            for s, q, c, sec in VERIFIED_57_SEED_HOLDINGS[:8]:
+                save_holding_direct(active_profile, s, q, c, sec)
+            st.rerun()
+
+    if df_held.empty:
+        st.info(f"No holdings currently saved for **{active_profile}**. Use the NLP text paste above, seed buttons, or the Trade Desk tab.")
+    else:
+        held_syms = tuple(df_held["symbol"].unique().tolist())
+        with st.spinner(f"Batch-valuing {len(held_syms)} positions via live exchange ticks..."):
+            live_map = batch_fetch_live_prices(held_syms)
+
+        v_list = []
+        tot_c = 0.0
+        tot_v = 0.0
+
+        for _, row in df_held.iterrows():
+            sym = row["symbol"]
+            sh = float(row["shares"])
+            raw_cost = float(row["avg_cost"])
+            sec = row["sector"]
+
+            cmp_l, chg_1d = live_map.get(sym, (raw_cost, 0.0))
+            # Run ACAR Split Immunity Check (Kotak 1:5 Rule)
+            sh_adj, cost_adj, split_flag, acar_msg = reconcile_corporate_action(sym, sh, raw_cost, cmp_l)
+
+            cur_v = sh_adj * cmp_l
+            c_tot = sh_adj * cost_adj
+            tot_c += c_tot
+            tot_v += cur_v
+
+            v_list.append({
+                "Symbol": sym, "Sector": sec, "Shares": sh_adj, "Buy Price": round(cost_adj, 2),
+                "Live CMP": round(cmp_l, 2), "1D Change %": chg_1d, "Cost Basis": round(c_tot, 2),
+                "Market Value": round(cur_v, 2), "P&L (₹)": round(cur_v - c_tot, 2),
+                "P&L %": round(((cur_v - c_tot) / c_tot) * 100.0, 2) if c_tot > 0 else 0.0,
+                "ACAR Note": acar_msg
+            })
+
+        df_vault_disp = pd.DataFrame(v_list)
+        df_vault_disp["Weight %"] = round((df_vault_disp["Market Value"] / tot_v) * 100.0, 2) if tot_v > 0 else 0.0
+        df_vault_disp = df_vault_disp.sort_values(by="Market Value", ascending=False).reset_index(drop=True)
+
+        tot_gain = tot_v - tot_c
+        tot_pct = round((tot_gain / tot_c) * 100.0, 2) if tot_c > 0 else 0.0
+        day_pnl_rupees = sum(r["Market Value"] * (r["1D Change %"] / 100.0) for r in v_list)
+
+        k1, k2, k3, k4 = st.columns(4)
+        k1.metric("Capital Deployed", f"₹{tot_c:,.2f}", f"{len(df_vault_disp)} Positions")
+        k2.metric("Mark-to-Market Valuation", f"₹{tot_v:,.2f}", f"{tot_pct:+.2f}% Overall")
+        k3.metric("Net Unrealized P&L", f"₹{tot_gain:+,.2f}", f"1D Est: ₹{day_pnl_rupees:+,.0f}")
+        k4.metric("Top Holding Weight", f"{df_vault_disp['Weight %'].max():.2f}%", "Ceiling: 8.00%")
+
+        col_donut, col_audit = st.columns([1.15, 1])
+        with col_donut:
+            fig_sec = GrandVisualEngine.create_sector_donut_chart(df_vault_disp)
+            if fig_sec:
+                st.plotly_chart(fig_sec, use_container_width=True)
+        with col_audit:
+            st.markdown("#### 🛡️ Sovereign Risk & ACAR Audit")
+            overweight_stocks = df_vault_disp[df_vault_disp["Weight %"] > 8.0]
+            sec_weights = df_vault_disp.groupby("Sector")["Weight %"].sum()
+            overweight_secs = sec_weights[sec_weights > 20.0]
+            vetoed_held = df_vault_disp[df_vault_disp["Symbol"].isin(FORENSIC_VETO_REGISTRY.keys())]
+
+            if overweight_stocks.empty and overweight_secs.empty and vetoed_held.empty:
+                st.success("🟢 All positions (<8.0%), sectors (<20.0%), and forensic screens compliant.")
+            else:
+                for _, ov in overweight_stocks.iterrows():
+                    st.warning(f"⚠️ **Single-Stock Ceiling Breach:** `{ov['Symbol']}` is at **{ov['Weight %']:.2f}%** (Cap: 8.00%).")
+                for sec_n, sec_w in overweight_secs.items():
+                    st.warning(f"⚠️ **Sector Cap Breach:** `{sec_n}` is at **{sec_w:.2f}%** (Cap: 20.00%).")
+                for _, vr in vetoed_held.iterrows():
+                    st.error(f"⛔ **Forensic Veto Held:** `{vr['Symbol']}` ({vr['Weight %']:.2f}% wt) — {FORENSIC_VETO_REGISTRY[vr['Symbol']]['reason']}.")
+
+        st.dataframe(
+            df_vault_disp[["Symbol", "Sector", "Shares", "Buy Price", "Live CMP", "1D Change %", "Cost Basis", "Market Value", "P&L (₹)", "P&L %", "Weight %", "ACAR Note"]],
+            use_container_width=True,
+            hide_index=True,
+        )
+
+# ==============================================================================
+# TAB 4: TRADE DESK (BUY / SELL WITH WEIGHTED COST BASES & REALIZED P&L)
+# ==============================================================================
+with tab_trade:
+    st.subheader(f"⚙️ Institutional Execution Desk: {active_profile}")
+    col_tb, col_ts = st.columns(2)
+
+    with col_tb:
+        st.markdown("#### 🟢 Execute Buy / Accumulate Order")
+        st.caption("Automatically recalculates weighted-average cost basis if adding to an existing position.")
+        with st.form("buy_form_master", clear_on_submit=True):
+            b_s = st.text_input("NSE Ticker (e.g. HAL, BEL, TRENT):").upper().strip()
+            b_q = st.number_input("Shares Quantity:", min_value=1.0, value=10.0, step=1.0)
+            b_p = st.number_input("Execution Price (₹):", min_value=0.05, value=500.0, step=0.5)
+            b_sec = st.selectbox(
+                "Sector Classification:",
+                [
+                    "Defence & Aerospace", "Private Banking", "PSU Banking", "Capital Markets",
+                    "Cables & Wires", "Industrial Automation", "Infrastructure & EPC", "Electronics Mfg (EMS)",
+                    "PSU Energy & Mining", "Power Utilities", "IT Services", "Digital ER&D", "Auto OEMs",
+                    "Luxury & Retail", "Specialty Chemicals", "Pharmaceuticals", "Equities"
+                ],
+            )
+            if st.form_submit_button(f"🟢 Commit BUY to {active_profile}"):
+                ok, msg = execute_buy_order(active_profile, b_s, b_q, b_p, b_sec)
+                if ok:
+                    st.success(msg)
+                    st.rerun()
+                else:
+                    st.error(msg)
+
+    with col_ts:
+        st.markdown("#### 🔴 Execute Sell / Partial Exit Order")
+        st.caption("Logs realized P&L directly to the audit ledger and reduces share count.")
+        df_cur_h = get_holdings(active_profile)
+        held_syms_opts = df_cur_h["symbol"].tolist() if not df_cur_h.empty else []
+
+        with st.form("sell_form_master", clear_on_submit=True):
+            if held_syms_opts:
+                s_s = st.selectbox("Select Holding to Sell / Trim:", held_syms_opts)
+            else:
+                s_s = st.text_input("Symbol to Sell:").upper().strip()
+            s_q = st.number_input("Shares to Sell:", min_value=1.0, value=10.0, step=1.0)
+            s_p = st.number_input("Sale Execution Price (₹):", min_value=0.05, value=550.0, step=0.5)
+            if st.form_submit_button(f"🔴 Commit SELL from {active_profile}"):
+                ok, msg = execute_sell_order(active_profile, s_s, s_q, s_p)
+                if ok:
+                    st.success(msg)
+                    st.rerun()
+                else:
+                    st.error(msg)
+
+    st.markdown("#### 📜 Trade Ledger & Realized P&L Accounting")
+    df_led = get_trade_ledger(active_profile)
+    if df_led.empty:
+        st.info(f"No trades recorded for **{active_profile}** yet.")
+    else:
+        tot_realized = float(df_led["realized_pnl"].sum())
+        st.metric("Total Cumulative Realized P&L (Booked)", f"₹{tot_realized:+,.2f}")
+        st.dataframe(
+            df_led.rename(columns={"id": "ID", "profile": "Profile", "symbol": "Symbol", "action": "Action", "shares": "Shares", "price": "Price (₹)", "total_amount": "Turnover (₹)", "realized_pnl": "Realized P&L (₹)", "timestamp": "Timestamp"}),
+            use_container_width=True,
+            hide_index=True,
+        )
+
+# ==============================================================================
+# TAB 5: EMBEDDED CONVERSATIONAL AI QUANT COPILOT
+# ==============================================================================
+with tab_copilot:
+    st.subheader(f"💬 Conversational Quant Copilot: {active_profile}")
+    st.caption("Ask questions in plain English about your portfolio, specific stocks, or live Muhurta execution:")
+
+    with st.expander("⚙️ Optional LLM Cloud Key (Gemini / Groq) — Leave Blank for Built-In Offline Engine"):
+        llm_provider = st.selectbox("Select Cloud LLM Provider:", ["Offline Deterministic Engine (Zero Key Needed)", "Google Gemini (gemini-1.5-flash)", "Groq (Llama-3.3-70B)"])
+        user_api_key = st.text_input("API Key (Stored in session only):", type="password")
+
+    # Sample Question Chips
+    st.markdown("**Quick Prompts:**")
+    q_col1, q_col2, q_col3 = st.columns(3)
+    preset_q = None
+    if q_col1.button("🛡️ What should I trim/sell today?"):
+        preset_q = "What should I trim or exit from my portfolio today?"
+    if q_col2.button("🟢 What are the top buys right now?"):
+        preset_q = "What are the top institutional buys in the market right now?"
+    if q_col3.button("⚡ Audit BEL across 216 variables"):
+        preset_q = "Audit BEL across all variables and give execution levels."
+
+    user_chat_input = st.text_input("Ask the Sovereign Copilot:", value=preset_q if preset_q else "", placeholder="e.g. Audit KOTAKBANK, or What should I do with Yes Bank?")
+
+    if user_chat_input:
+        with st.spinner("Synthesizing answer from 216 variables, active portfolio, and Vedic chronometer..."):
+            offline_answer = generate_deterministic_copilot_response(
+                user_chat_input, active_profile, df_vault_disp, df_rad, vedic, live_mmi
+            )
+
+            if "Offline" not in llm_provider and user_api_key.strip():
+                sys_ctx = (
+                    f"You are the Sovereign Copilot for VEDICQUANT PARAMA-VAJRA (ANANTA-216). "
+                    f"Active Profile: {active_profile}. Live MMI: {live_mmi:.1f}. Muhurta: {vedic['abhijit']}. "
+                    f"Rahu Kaalam: {vedic['rahu']}. Answer concisely with institutional quantitative precision."
+                )
+                llm_resp = query_optional_llm_api(user_api_key, llm_provider, sys_ctx, user_chat_input)
+                final_answer = llm_resp if llm_resp else offline_answer
+            else:
+                final_answer = offline_answer
+
+            st.markdown(f'<div class="glass-card">{final_answer}</div>', unsafe_allow_html=True)
+
+# ==============================================================================
+# TAB 6: 5-SHEET INSTITUTIONAL DOSSIER & CLOUD-IMMUNE BACKUP
+# ==============================================================================
+with tab_export:
+    st.subheader("📥 5-Sheet Institutional Excel Dossier & Cloud-Immune JSON Backup")
+    st.markdown(
+        """
+        <div class="glass-card">
+            <b>🏛️ Institutional Multi-Sheet Workbook Architecture:</b><br>
+            • <b>Sheet 1 (01_Executive_Vedic_Brief):</b> NAV, P&L, MMI, and live Saptarshi Vedic parameters.<br>
+            • <b>Sheet 2 (02_Vault_Holdings):</b> Mark-to-market positions with ACAR split reconciliation.<br>
+            • <b>Sheet 3 (03_Sector_Risk_Audit):</b> Sector concentration vs. the 20.0% institutional ceiling.<br>
+            • <b>Sheet 4 (04_Live_Market_Radar):</b> Complete 39-stock NSE screening ledger.<br>
+            • <b>Sheet 5 (05_Codex216_BEL):</b> Full 216-variable line-by-line computed ledger.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    featured_sym = "BEL"
+    featured_hist = yf.Ticker("BEL.NS").history(period="6mo")
+    featured_codex_dict = compute_216_variable_codex(featured_sym, featured_hist, vedic, acct_equity_base)["Codex_216"]
+
+    df_led_all = get_trade_ledger(active_profile)
+    excel_bytes = build_ananta216_excel_dossier(
+        active_profile=active_profile,
+        df_vault_disp=df_vault_disp,
+        df_radar=df_rad,
+        df_ledger=df_led_all,
+        vedic_info=vedic,
+        mmi_score=live_mmi,
+        featured_sym=featured_sym,
+        featured_codex=featured_codex_dict,
+    )
+
+    clean_slug = re.sub(r"[^A-Za-z0-9]+", "_", active_profile).strip("_")
+    xlsx_filename = f"ANANTA216_Sovereign_Dossier_{clean_slug}_{datetime.datetime.now().strftime('%Y%m%d')}.xlsx"
+
+    st.download_button(
+        label=f"📥 Download 5-Sheet Institutional Excel Dossier ({xlsx_filename})",
+        data=excel_bytes,
+        file_name=xlsx_filename,
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True,
+    )
+
+    st.markdown("---")
+    st.subheader("🔒 Cloud-Immune Vault Backup & Restore (Zero Data Loss)")
+    st.caption("Protect all family member portfolios from cloud server resets with one tap:")
+
+    bk_c1, bk_c2 = st.columns(2)
+    with bk_c1:
+        st.markdown("#### 1. Save All Family Profiles to Phone")
+        all_json_backup = export_all_vaults_json()
+        st.download_button(
+            label="📥 Download Full Vault Backup (.json)",
+            data=all_json_backup,
+            file_name=f"ANANTA216_Family_Vault_Backup_{datetime.datetime.now().strftime('%Y%m%d')}.json",
+            mime="application/json",
+            use_container_width=True,
+        )
+        st.caption("Saves an immutable snapshot of every family profile and the complete trade ledger to your phone.")
+
+    with bk_c2:
+        st.markdown("#### 2. Restore Vault from Phone")
+        up_json = st.file_uploader("Upload Backup JSON File:", type=["json"])
+        if up_json is not None:
+            if st.button("Confirm Restore All Data"):
+                ok, r_msg = restore_vaults_from_json(up_json.read().decode("utf-8"))
+                if ok:
+                    st.success(r_msg)
+                    st.rerun()
+                else:
+                    st.error(r_msg)
