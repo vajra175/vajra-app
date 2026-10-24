@@ -1,4 +1,4 @@
-```python
+
 """
 ================================================================================
 VEDICQUANT PARAMA-VAJRA (ANANTA-216): SUPREME SOVEREIGN ALPHA & RISK ENGINE
