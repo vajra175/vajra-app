@@ -24,33 +24,52 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import base64
+from PIL import Image, ImageDraw
 import requests
 import streamlit as st
 import yfinance as yf
 
 # ------------------------------------------------------------------------------
-# 1. BLOOMBERG-MEETS-SOVEREIGN CYBER-VEDIC TERMINAL UI & CSS ARCHITECTURE
+# 1. CUSTOM BRANDED ICON, PWA MANIFEST & CYBER-VEDIC TERMINAL UI
 # ------------------------------------------------------------------------------
+def build_vajra_app_icon() -> Tuple[Image.Image, str]:
+    """Generates a 192x192 custom Cyber-Vedic Vajra emblem for browser tab & mobile PWA home screen."""
+    img = Image.new("RGBA", (192, 192), (5, 8, 17, 255))
+    draw = ImageDraw.Draw(img)
+    draw.ellipse([8, 8, 184, 184], fill=(15, 23, 42, 255), outline=(168, 85, 247, 255), width=6)
+    draw.ellipse([20, 20, 172, 172], fill=(7, 10, 19, 255), outline=(56, 189, 248, 255), width=3)
+    bolt = [(108, 26), (48, 105), (92, 105), (72, 166), (144, 84), (100, 84)]
+    draw.polygon(bolt, fill=(56, 189, 248, 255), outline=(245, 158, 11, 255))
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    b64_str = base64.b64encode(buf.getvalue()).decode("utf-8")
+    return img, f"data:image/png;base64,{b64_str}"
+
+VAJRA_PIL_ICON, VAJRA_ICON_URI = build_vajra_app_icon()
+
 st.set_page_config(
-    page_title="PARAMA-VAJRA (ANANTA-216) Supreme Sovereign Terminal",
-    page_icon="⚡",
+    page_title="ANANTA-216 | Parama-Vajra Sovereign Terminal",
+    page_icon=VAJRA_PIL_ICON,
     layout="wide",
     initial_sidebar_state="collapsed",
 )
 
 st.markdown(
-    """
+    f"""
 <head>
-    <title>PARAMA-VAJRA ANANTA-216</title>
+    <title>ANANTA-216 Sovereign</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="ANANTA-216">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="application-name" content="ANANTA-216">
     <meta name="theme-color" content="#050811">
+    <link rel="icon" type="image/png" href="{VAJRA_ICON_URI}">
+    <link rel="apple-touch-icon" href="{VAJRA_ICON_URI}">
 </head>
 <style>
-    .stApp {
+    .stApp {{
         background-color: #050811;
         background-image:
             radial-gradient(circle at 10% 10%, rgba(124, 58, 237, 0.13) 0%, transparent 38%),
@@ -58,8 +77,8 @@ st.markdown(
             radial-gradient(circle at 50% 90%, rgba(16, 185, 129, 0.08) 0%, transparent 45%);
         color: #F8FAFC;
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
-    .command-ribbon {
+    }}
+    .command-ribbon {{
         background: linear-gradient(90deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 27, 75, 0.90) 50%, rgba(15, 23, 42, 0.95) 100%);
         border: 1px solid rgba(148, 163, 184, 0.18);
         border-radius: 10px;
@@ -71,15 +90,15 @@ st.markdown(
         align-items: center;
         gap: 10px;
         font-size: 12.5px;
-    }
-    .ribbon-pill {
+    }}
+    .ribbon-pill {{
         background: rgba(2, 6, 23, 0.75);
         border: 1px solid rgba(255, 255, 255, 0.08);
         padding: 5px 11px;
         border-radius: 8px;
         display: inline-block;
-    }
-    .glass-card {
+    }}
+    .glass-card {{
         background: rgba(15, 23, 42, 0.82);
         backdrop-filter: blur(18px);
         -webkit-backdrop-filter: blur(18px);
@@ -88,8 +107,8 @@ st.markdown(
         border: 1px solid rgba(255, 255, 255, 0.09);
         box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.45);
         margin-bottom: 14px;
-    }
-    .muhurta-live-banner {
+    }}
+    .muhurta-live-banner {{
         background: linear-gradient(135deg, rgba(46, 16, 101, 0.90), rgba(15, 23, 42, 0.88));
         border: 1px solid rgba(168, 85, 247, 0.42);
         color: #F5F3FF;
@@ -98,8 +117,8 @@ st.markdown(
         border-left: 5px solid #A855F7;
         margin-bottom: 14px;
         box-shadow: 0 4px 24px rgba(168, 85, 247, 0.18);
-    }
-    .rahu-alert-banner {
+    }}
+    .rahu-alert-banner {{
         background: linear-gradient(135deg, rgba(127, 29, 29, 0.90), rgba(30, 10, 15, 0.88));
         border: 1px solid rgba(248, 113, 113, 0.50);
         color: #FEF2F2;
@@ -107,8 +126,8 @@ st.markdown(
         border-radius: 12px;
         border-left: 5px solid #EF4444;
         margin-bottom: 14px;
-    }
-    .badge-buy {
+    }}
+    .badge-buy {{
         background: rgba(6, 95, 70, 0.90);
         color: #6EE7B7;
         border: 1px solid #10B981;
@@ -117,8 +136,8 @@ st.markdown(
         font-weight: 700;
         font-size: 12px;
         display: inline-block;
-    }
-    .badge-veto {
+    }}
+    .badge-veto {{
         background: rgba(136, 19, 55, 0.90);
         color: #FECDD3;
         border: 1px solid #F43F5E;
@@ -127,8 +146,8 @@ st.markdown(
         font-weight: 700;
         font-size: 12px;
         display: inline-block;
-    }
-    .status-pulse {
+    }}
+    .status-pulse {{
         display: inline-block;
         width: 9px;
         height: 9px;
@@ -136,14 +155,17 @@ st.markdown(
         background-color: #10B981;
         box-shadow: 0 0 10px #10B981;
         margin-right: 6px;
-    }
-    div[data-testid="stMetric"] {
+    }}
+    div[data-testid="stMetric"] {{
         background: linear-gradient(145deg, rgba(15, 23, 42, 0.85), rgba(30, 41, 59, 0.55));
         border: 1px solid rgba(148, 163, 184, 0.14);
         padding: 12px 15px;
         border-radius: 11px;
         box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
-    }
+    }}
+    #MainMenu {{visibility: hidden;}}
+    footer {{visibility: hidden;}}
+    header[data-testid="stHeader"] {{background: transparent;}}
 </style>
 """,
     unsafe_allow_html=True,
@@ -2003,7 +2025,14 @@ class GrandVisualEngine:
             xaxis_rangeslider_visible=False,
             height=460,
             margin=dict(l=12, r=12, t=38, b=12),
-            legend=dict(orientation="h", yanchor="bottom", y=1.03, xanchor="right", x=1, font=dict(size=10, color="#CBD5E1")),
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.03,
+                xanchor="right",
+                x=1,
+                font=dict(size=10, color="#CBD5E1"),
+            ),
         )
         fig.update_xaxes(showgrid=True, gridcolor="rgba(255,255,255,0.05)", color="#94A3B8")
         fig.update_yaxes(showgrid=True, gridcolor="rgba(255,255,255,0.05)", color="#94A3B8", row=1, col=1)
@@ -2074,19 +2103,4 @@ class GrandVisualEngine:
         days_x = list(range(1, n_days + 1))
 
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=days_x, y=p95, mode="lines", name="95th Percentile (Bull Convexity)", line=dict(color="#10B981", width=1.5, dash="dot")))
-        fig.add_trace(go.Scatter(x=days_x, y=p75, mode="lines", name="75th Percentile", line=dict(color="#34D399", width=1), fill="tonexty", fillcolor="rgba(16, 185, 129, 0.08)"))
-        fig.add_trace(go.Scatter(x=days_x, y=p50, mode="lines", name="Median Sovereign Trajectory", line=dict(color="#38BDF8", width=2.6)))
-        fig.add_trace(go.Scatter(x=days_x, y=p25, mode="lines", name="25th Percentile", line=dict(color="#F59E0B", width=1), fill="tonexty", fillcolor="rgba(56, 189, 248, 0.08)"))
-        fig.add_trace(go.Scatter(x=days_x, y=p5, mode="lines", name="5th Percentile (95% VaR Floor)", line=dict(color="#EF4444", width=1.6, dash="dash")))
-
-        fig.update_layout(
-            title="<b>1,000-PATH MONTE CARLO JUMP-DIFFUSION CONE (1-YEAR FORWARD EQUITY PROJECTION)</b>",
-            title_font=dict(size=12, color="#F8FAFC"),
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(15, 23, 42, 0.55)",
-            xaxis_title="Forward Trading Days (252D = 1 Year)",
-            yaxis_title="Projected Portfolio Value (₹)",
-            height=330,
-            margin=dict(l=12, r=12, t=38, b=12),
-            legend=dict(orientation="h", yanchor="bo
+        fig.add_trace(go.Scatter(x=days_x, y=p95, mode="lines", name="95th Percentile (B
